@@ -58,24 +58,18 @@ def build_pipeline(num_cols, cat_cols):
     
     model = LogisticRegression(max_iter=1000, random_state=0)
 
-    params = model.get_params()
 
-    return Pipeline(steps=[('preprocessor', preprocessor), ('model', model)]), params
-
+    return Pipeline(steps=[('preprocessor', preprocessor), ('model', model)])
 
 
-def gen_pred_stats(pipeline, X_valid, Y_valid):
+
+def gen_preds_probs(pipeline, X_valid):
     # GENERATE PREDS AND PROBABILITIES OF CHURN
     preds = pipeline.predict(X_valid)
     probs = pipeline.predict_proba(X_valid)[:,1]
 
-    AUC = roc_auc_score(Y_valid, probs)
 
-    print(classification_report(Y_valid, preds))
-    print(f"ROC AUC: {AUC:.4f}")
-
-    return preds, probs, AUC
-
+    return preds, probs
 
 
 def main():
@@ -85,15 +79,19 @@ def main():
 
     with mlflow.start_run(run_name = 'logistic_regression_baseline'):
 
-        pipeline, params  = build_pipeline(num_cols, cat_cols)
+        pipeline = build_pipeline(num_cols, cat_cols)
+
+        params = pipeline.named_steps['model'].get_params()
 
         pipeline.fit(X_train, Y_train)
 
-        preds, probs, AUC = gen_pred_stats(pipeline, X_valid, Y_valid)
+
+
+        preds, probs = gen_preds_probs(pipeline, X_valid)
     
 
         mlflow.log_params(params)
-        mlflow.log_metrics({'roc_auc': AUC, 
+        mlflow.log_metrics({'roc_auc': roc_auc_score(Y_valid, probs), 
                             'f1': f1_score(Y_valid, preds),
                             'precision': precision_score(Y_valid, preds),
                             'recall': recall_score(Y_valid, preds)})
