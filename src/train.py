@@ -15,7 +15,6 @@ TODO: implement the pipeline. See the spec you were given for the steps:
 
 
 import pandas as pd
-import numpy as np
 
 from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
@@ -23,18 +22,29 @@ from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report, roc_auc_score
+from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score, classification_report
 
-
+import mlflow
+import mlflow.sklearn
     
     
-def load_data(filepath):
+def load_split_data(filepath):
     data = pd.read_csv(filepath)
     
     X = data.drop(columns=["Churn", 'customerID'])
     Y = (data["Churn"] == "Yes").astype(int)
 
-    return X, Y
+    X_train, X_valid, Y_train, Y_valid = train_test_split(X,Y, train_size = 0.8, test_size = 0.2, stratify=Y, random_state=1)
+    
+    # DEAL WITH EMPTY STRINGS IN TOTALCHARGES COLUMN
+    X_train['TotalCharges'] = pd.to_numeric(X_train['TotalCharges'], errors='coerce')
+    X_valid['TotalCharges'] = pd.to_numeric(X_valid['TotalCharges'], errors='coerce')
+    
+    num_cols = X_train.select_dtypes(exclude = "object").columns.tolist()
+    cat_cols = X_train.select_dtypes(include = "object").columns.tolist()
+
+    return X_train, X_valid, Y_train, Y_valid, num_cols, cat_cols
+
 
 
 def build_pipeline(num_cols, cat_cols):
@@ -47,8 +57,11 @@ def build_pipeline(num_cols, cat_cols):
             ('cat', categorical_transformer, cat_cols)])
     
     model = LogisticRegression(max_iter=1000, random_state=0)
-    
-    return Pipeline(steps=[('preprocessor', preprocessor), ('model', model)])
+
+    params = model.get_params()
+
+    return Pipeline(steps=[('preprocessor', preprocessor), ('model', model)]), params
+
 
 
 def gen_pred_stats(pipeline, X_valid, Y_valid):
@@ -56,33 +69,35 @@ def gen_pred_stats(pipeline, X_valid, Y_valid):
     preds = pipeline.predict(X_valid)
     probs = pipeline.predict_proba(X_valid)[:,1]
 
+    AUC = roc_auc_score(Y_valid, probs)
+
     print(classification_report(Y_valid, preds))
-    print(f"ROC AUC: {roc_auc_score(Y_valid, probs):.4f}")
-        
+    print(f"ROC AUC: {AUC:.4f}")
+
+    return preds, probs, AUC
+
+
 
 def main():
 
-    X,Y = load_data("data/telco_data.csv")
-
-    X_train, X_valid, Y_train, Y_valid = train_test_split(X,Y, train_size = 0.8, test_size = 0.2, stratify=Y, random_state=1)
-
-    # DEAL WITH EMPTY STRINGS IN TOTALCHARGES COLUMN
-    X_train['TotalCharges'] = pd.to_numeric(X_train['TotalCharges'], errors='coerce')
-    X_valid['TotalCharges'] = pd.to_numeric(X_valid['TotalCharges'], errors='coerce')
+    X_train, X_valid, Y_train, Y_valid, num_cols, cat_cols = load_split_data("data/telco_data.csv")
 
 
-    num_cols = X_train.select_dtypes(exclude = "object").columns.tolist()
-    cat_cols = X_train.select_dtypes(include = "object").columns.tolist()
+    with mlflow.start_run(run_name = 'logistic_regression_baseline'):
 
+        pipeline, params  = build_pipeline(num_cols, cat_cols)
 
-    pipeline = build_pipeline(num_cols, cat_cols)
+        pipeline.fit(X_train, Y_train)
 
-    pipeline.fit(X_train, Y_train)
-
-
-    gen_pred_stats(pipeline, X_valid, Y_valid)
+        preds, probs, AUC = gen_pred_stats(pipeline, X_valid, Y_valid)
     
-    
+
+        mlflow.log_params(params)
+        mlflow.log_metrics({'roc_auc': AUC, 
+                            'f1': f1_score(Y_valid, preds),
+                            'precision': precision_score(Y_valid, preds),
+                            'recall': recall_score(Y_valid, preds)})
+        mlflow.sklearn.log_model(pipeline, "model", skops_trusted_types=["numpy.dtype"],)
 
 
 
