@@ -20,14 +20,17 @@ from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score, classification_report
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
 
 import mlflow
 import mlflow.sklearn
     
-    
+
+
 def load_split_data(filepath):
     data = pd.read_csv(filepath)
     
@@ -47,16 +50,18 @@ def load_split_data(filepath):
 
 
 
-def build_pipeline(num_cols, cat_cols):
-    numerical_transformer = SimpleImputer(strategy='mean')
-    
+def build_pipeline(num_cols, cat_cols, classifier):
+
+    numerical_transformer = Pipeline(steps = [('impute', SimpleImputer(strategy='mean', add_indicator=True)), 
+                                              ('scale', StandardScaler())]) 
+                                                
     categorical_transformer = Pipeline(steps = [('impute', SimpleImputer(strategy='most_frequent')), ('onehot', OneHotEncoder(handle_unknown="ignore"))])
     
     preprocessor = ColumnTransformer(transformers=[
             ('num', numerical_transformer, num_cols),
             ('cat', categorical_transformer, cat_cols)])
     
-    model = LogisticRegression(max_iter=1000, random_state=0)
+    model = classifier
 
 
     return Pipeline(steps=[('preprocessor', preprocessor), ('model', model)])
@@ -76,27 +81,36 @@ def main():
 
     X_train, X_valid, Y_train, Y_valid, num_cols, cat_cols = load_split_data("data/telco_data.csv")
 
-
-    with mlflow.start_run(run_name = 'logistic_regression_baseline'):
-
-        pipeline = build_pipeline(num_cols, cat_cols)
-
-        params = pipeline.named_steps['model'].get_params()
-
-        pipeline.fit(X_train, Y_train)
-
+    trial_models = {'logistic_regression': LogisticRegression(random_state=0),
+                    'random_forest_1': RandomForestClassifier(max_depth=5, random_state=0),
+                    'random_forest_2': RandomForestClassifier(max_depth=8, random_state=0),
+                    'random_forest_3': RandomForestClassifier(max_depth=12, random_state=0),
+                    'xgboost_1': XGBClassifier(max_depth=3, random_state=0),
+                    'xgboost_2': XGBClassifier(max_depth=5, random_state=0),
+                    'xgboost_3': XGBClassifier(max_depth=7, random_state=0)}
 
 
-        preds, probs = gen_preds_probs(pipeline, X_valid)
+    for name, model in trial_models.items():
+
+        with mlflow.start_run(run_name = name):
+
+
+            pipeline = build_pipeline(num_cols, cat_cols, classifier=model)
+
+            params = pipeline.named_steps['model'].get_params()
+
+            pipeline.fit(X_train, Y_train)
+
+
+            preds, probs = gen_preds_probs(pipeline, X_valid)
     
 
-        mlflow.log_params(params)
-        mlflow.log_metrics({'roc_auc': roc_auc_score(Y_valid, probs), 
-                            'f1': f1_score(Y_valid, preds),
-                            'precision': precision_score(Y_valid, preds),
-                            'recall': recall_score(Y_valid, preds)})
-        mlflow.sklearn.log_model(pipeline, "model", skops_trusted_types=["numpy.dtype"],)
-
+            mlflow.log_params(params)
+            mlflow.log_metrics({'roc_auc': roc_auc_score(Y_valid, probs), 
+                                'f1': f1_score(Y_valid, preds),
+                                'precision': precision_score(Y_valid, preds),
+                                'recall': recall_score(Y_valid, preds)})
+            mlflow.sklearn.log_model(pipeline, "model", skops_trusted_types=["numpy.dtype", "xgboost.core.Booster", "xgboost.sklearn.XGBClassifier"],)
 
 
 
