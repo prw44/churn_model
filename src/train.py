@@ -81,13 +81,7 @@ def main():
 
     X_train, X_valid, Y_train, Y_valid, num_cols, cat_cols = load_split_data("data/telco_data.csv")
 
-    trial_models = {'logistic_regression': LogisticRegression(random_state=0),
-                    'random_forest_1': RandomForestClassifier(max_depth=5, random_state=0),
-                    'random_forest_2': RandomForestClassifier(max_depth=8, random_state=0),
-                    'random_forest_3': RandomForestClassifier(max_depth=12, random_state=0),
-                    'xgboost_1': XGBClassifier(max_depth=3, random_state=0),
-                    'xgboost_2': XGBClassifier(max_depth=5, random_state=0),
-                    'xgboost_3': XGBClassifier(max_depth=7, random_state=0)}
+    trial_models = {'logistic_regression': LogisticRegression(random_state=0)}
 
 
     for name, model in trial_models.items():
@@ -110,7 +104,7 @@ def main():
                                 'f1': f1_score(Y_valid, preds),
                                 'precision': precision_score(Y_valid, preds),
                                 'recall': recall_score(Y_valid, preds)})
-            mlflow.sklearn.log_model(pipeline, "model", skops_trusted_types=["numpy.dtype", "xgboost.core.Booster", "xgboost.sklearn.XGBClassifier"],)
+            mlflow.sklearn.log_model(pipeline, "model", serialization_format='pickle')
 
 
 
