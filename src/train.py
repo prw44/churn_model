@@ -39,30 +39,40 @@ def load_split_data(filepath):
 
     X_train, X_valid, Y_train, Y_valid = train_test_split(X,Y, train_size = 0.8, test_size = 0.2, stratify=Y, random_state=1)
     
+    X_train = X_train.copy()
+    X_valid = X_valid.copy()
+
     # DEAL WITH EMPTY STRINGS IN TOTALCHARGES COLUMN
     X_train['TotalCharges'] = pd.to_numeric(X_train['TotalCharges'], errors='coerce')
     X_valid['TotalCharges'] = pd.to_numeric(X_valid['TotalCharges'], errors='coerce')
     
-    num_cols = X_train.select_dtypes(exclude = "object").columns.tolist()
-    cat_cols = X_train.select_dtypes(include = "object").columns.tolist()
-
-    return X_train, X_valid, Y_train, Y_valid, num_cols, cat_cols
+    return X_train, X_valid, Y_train, Y_valid
 
 
+def build_preprocessor(df):
 
-def build_pipeline(num_cols, cat_cols, classifier):
+    num_cols = df.select_dtypes(exclude = "object").columns.tolist()
+    cat_cols = df.select_dtypes(include = "object").columns.tolist()
 
     numerical_transformer = Pipeline(steps = [('impute', SimpleImputer(strategy='mean', add_indicator=True)), 
                                               ('scale', StandardScaler())]) 
-                                                
-    categorical_transformer = Pipeline(steps = [('impute', SimpleImputer(strategy='most_frequent')), ('onehot', OneHotEncoder(handle_unknown="ignore"))])
-    
-    preprocessor = ColumnTransformer(transformers=[
-            ('num', numerical_transformer, num_cols),
-            ('cat', categorical_transformer, cat_cols)])
-    
-    model = classifier
+                                                    
+    categorical_transformer = Pipeline(steps = [('impute', SimpleImputer(strategy='most_frequent')), 
+                                                ('onehot', OneHotEncoder(handle_unknown="ignore"))])
+        
+    preprocessor = ColumnTransformer(transformers=[('num', numerical_transformer, num_cols),
+                                                   ('cat', categorical_transformer, cat_cols)])
 
+    return preprocessor
+
+
+
+
+def build_pipeline(X_train, classifier):
+  
+    preprocessor = build_preprocessor(X_train)
+
+    model = classifier
 
     return Pipeline(steps=[('preprocessor', preprocessor), ('model', model)])
 
@@ -79,7 +89,7 @@ def gen_preds_probs(pipeline, X_valid):
 
 def main():
 
-    X_train, X_valid, Y_train, Y_valid, num_cols, cat_cols = load_split_data("data/telco_data.csv")
+    X_train, X_valid, Y_train, Y_valid = load_split_data("data/telco_data.csv")
 
     trial_models = {'logistic_regression': LogisticRegression(random_state=0)}
 
@@ -89,7 +99,7 @@ def main():
         with mlflow.start_run(run_name = name):
 
 
-            pipeline = build_pipeline(num_cols, cat_cols, classifier=model)
+            pipeline = build_pipeline(X_train, classifier=model)
 
             params = pipeline.named_steps['model'].get_params()
 
