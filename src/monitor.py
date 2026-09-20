@@ -56,3 +56,37 @@ def drift_summary(drift_stats, threshold):
 
 
 
+def main():
+
+    """
+    Demonstrates the drift detection logic using a random train/test
+    split of the existing dataset as a stand-in for "new" data, since no
+    real time-separated data source is available. This validates that the
+    detection logic works correctly — it is not a live production drift
+    check. See README for more detail.
+    """
+    
+    df = pd.read_csv('data/telco_data.csv')
+
+    X = df.drop(columns=["Churn", 'customerID'])
+    Y = (df["Churn"] == "Yes").astype(int)
+    
+    X_ref, X_new, Y_ref, Y_new = train_test_split(X,Y, train_size = 0.8, test_size = 0.2, stratify=Y, random_state=1)
+
+    stats = drift_detection(X_ref, X_new)
+    drifted_columns = drift_summary(stats, 0.05)
+
+    if drifted_columns:
+        print(f"The columns which drifted are {drifted_columns}")
+
+    else: 
+        print("No columns drifted")
+
+
+    return stats, drifted_columns
+
+
+
+if __name__ == "__main__":
+    main() 
+

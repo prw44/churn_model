@@ -18,6 +18,16 @@ Predict which customers are likely to cancel their subscription, using the
 - Monitoring for data drift in production
 
 
+## Roadmap
+
+- [x] Baseline model + comparison (logistic regression, random forest, XGBoost)
+- [x] Experiment tracking with MLflow
+- [x] Automated retraining via GitHub Actions
+- [x] Data drift detection (tested, not wired to a live data source)
+- [ ] Monitoring dashboard (Streamlit)
+- [ ] Deployment
+
+
 
 ## Model selection
 
@@ -30,3 +40,16 @@ Predict which customers are likely to cancel their subscription, using the
 - Experimented with different max depth for tree based models but even the best ones were only marginally better than logistic regression by some metrics and still mostly the same or worse when all metrics were taken into account
 - This is likely due to the dataset being slightly too modest in size (7000 rows) for tree based models to significantly overtake. The features are mostly also more or less linear in correlation to the outcome (The longer the tenure, the more likely to stick with the company)
 - Logistic regression was therefore used in the production pipeline although a full sweep of hyperparameters would be required in order to confirm it as the best option. This was not done in order to move on with the rest of the project
+
+
+
+## CI implementation
+
+- In github workflows, I added a retrain job triggered by changes in the data folder.
+
+## Drift detection
+
+- I conducted research into data drift and the best metrics and statistical tests to use for detecting it
+- I decided to use the two-sample Kolmogorov-Smirnov test for numerical columns and a Chi-square contingency test as the statistical tests and just use p value as the main metric although this could easily be altered or expanded in the future
+- Since there is no continous inflow of data, the drift detection logic doesn't actually do anything but is fully tested and so ready to be implemented if there was live data
+- The main function shows the detection in action on a train test style split of data although it naturally doesn't detect drift within this data
