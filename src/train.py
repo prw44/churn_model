@@ -25,6 +25,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
+import joblib
 
 import mlflow
 import mlflow.sklearn
@@ -115,6 +116,9 @@ def main():
                                 'precision': precision_score(Y_valid, preds),
                                 'recall': recall_score(Y_valid, preds)})
             mlflow.sklearn.log_model(pipeline, "model", serialization_format='pickle')
+
+
+    joblib.dump(pipeline, "model.pkl")
 
 
 
