@@ -4,6 +4,15 @@ An end-to-end ML pipeline for predicting customer churn, built to demonstrate
 production ML engineering practices: experiment tracking, CI/CD, and
 monitoring — not just model training.
 
+
+## Live demo
+
+Try the churn prediction dashboard here: https://churnmodel-bjqifr5ovnttvsyrg7zfhk.streamlit.app/
+
+
+
+
+
 ## Problem
 
 Predict which customers are likely to cancel their subscription, using the
@@ -24,8 +33,8 @@ Predict which customers are likely to cancel their subscription, using the
 - [x] Experiment tracking with MLflow
 - [x] Automated retraining via GitHub Actions
 - [x] Data drift detection (tested, not wired to a live data source)
-- [ ] Monitoring dashboard (Streamlit)
-- [ ] Deployment
+- [x] Monitoring dashboard (Streamlit)
+- [x] Deployment
 
 
 
@@ -43,6 +52,7 @@ Predict which customers are likely to cancel their subscription, using the
 
 - In github workflows, I added a retrain job triggered by changes in the data folder.
 
+
 ## Drift detection
 
 - I conducted research into data drift and the best metrics and statistical tests to use for detecting it
@@ -54,8 +64,10 @@ Predict which customers are likely to cancel their subscription, using the
 ## Streamlit monitoring dashboard
 
 - Built an interactive dashboard in which a user inputs customer data via a sidebar and it outputs both a churn prediction and probability
-- The CI retrain job now saves the retrained model to `model.pkl` and automatically commits it back
-  to the repo, so the dashboard always serves the most recently trained model without manual steps
+- The CI retrain job now saves the retrained model to `model.pkl` and automatically commits it back to the repo, so the dashboard always serves the most recently trained model without manual steps
+- Deployed the dashboard using streamlit
+
+
 
 
 
